@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from "react";
+import { FormEvent, Fragment, useEffect, useState } from "react";
 
 import {
   albumSpreads,
@@ -11,8 +11,25 @@ import {
 } from "../content/text/siteContent";
 
 export function Portfolio() {
+  const [accessGranted, setAccessGranted] = useState(
+    () => window.sessionStorage.getItem("tej-profile-access") === "granted",
+  );
+  const [accessCode, setAccessCode] = useState("");
+  const [accessError, setAccessError] = useState(false);
   const [selected, setSelected] = useState<number | null>(null);
   const [instagramOpen, setInstagramOpen] = useState(false);
+
+  const unlockProfile = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (accessCode === "1999") {
+      window.sessionStorage.setItem("tej-profile-access", "granted");
+      setAccessGranted(true);
+      setAccessError(false);
+      return;
+    }
+    setAccessError(true);
+    setAccessCode("");
+  };
 
   const openPhoto = (index: number) => {
     if ("startViewTransition" in document) {
@@ -32,6 +49,7 @@ export function Portfolio() {
   };
 
   useEffect(() => {
+    if (!accessGranted) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
     const scenes = Array.from(document.querySelectorAll<HTMLElement>(".photo-scene"));
@@ -53,7 +71,7 @@ export function Portfolio() {
       observer.disconnect();
       document.documentElement.classList.remove("motion-ready");
     };
-  }, []);
+  }, [accessGranted]);
 
   useEffect(() => {
     if (selected === null) return;
@@ -74,6 +92,7 @@ export function Portfolio() {
   }, [selected]);
 
   useEffect(() => {
+    if (!accessGranted) return;
     let frame = 0;
     const moveGlow = (x: number, y: number) => {
       cancelAnimationFrame(frame);
@@ -95,7 +114,41 @@ export function Portfolio() {
       window.removeEventListener("pointermove", onPointerMove);
       window.removeEventListener("pointerdown", onPointerDown);
     };
-  }, []);
+  }, [accessGranted]);
+
+  if (!accessGranted) {
+    return (
+      <main className="access-gate">
+        <div className="access-glow" aria-hidden="true" />
+        <form className="access-card" onSubmit={unlockProfile}>
+          <span className="access-mark">TD</span>
+          <p>Private profile</p>
+          <h1>Enter the access code to view Tej’s profile.</h1>
+          <label htmlFor="profile-code">Access code</label>
+          <div className="access-entry">
+            <input
+              id="profile-code"
+              type="password"
+              inputMode="numeric"
+              autoComplete="off"
+              maxLength={4}
+              value={accessCode}
+              onChange={(event) => {
+                setAccessCode(event.target.value.replace(/\D/g, ""));
+                setAccessError(false);
+              }}
+              autoFocus
+              aria-describedby={accessError ? "access-error" : undefined}
+            />
+            <button type="submit" disabled={accessCode.length !== 4}>View profile</button>
+          </div>
+          <span id="access-error" className={`access-error${accessError ? " is-visible" : ""}`} role="alert">
+            That code does not match. Please try again.
+          </span>
+        </form>
+      </main>
+    );
+  }
 
   return (
     <main>
